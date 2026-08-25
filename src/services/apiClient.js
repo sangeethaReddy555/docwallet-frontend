@@ -41,11 +41,42 @@ async function request(path, { method = "GET", body, isFormData = false } = {}) 
   return json.data;
 }
 
+async function requestBlob(path, { method = "GET" } = {}) {
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      method,
+      credentials: "include",
+    });
+  } catch (networkErr) {
+    throw new Error("Could not reach the server. Please check your connection.");
+  }
+
+  if (!res.ok) {
+    let errorMessage = "Failed to retrieve file";
+    try {
+      const json = await res.json();
+      if (json && json.message) {
+        errorMessage = json.message;
+      }
+    } catch {
+      errorMessage = res.statusText || errorMessage;
+    }
+    const error = new Error(errorMessage);
+    error.status = res.status;
+    throw error;
+  }
+
+  return await res.blob();
+}
+
 const apiClient = {
   get: (path) => request(path, { method: "GET" }),
   post: (path, body, opts = {}) => request(path, { method: "POST", body, ...opts }),
   put: (path, body, opts = {}) => request(path, { method: "PUT", body, ...opts }),
   del: (path, body, opts = {}) => request(path, { method: "DELETE", body, ...opts }),
+  blob: (path, opts = {}) => requestBlob(path, opts),
 };
 
 export default apiClient;
+

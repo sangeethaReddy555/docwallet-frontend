@@ -181,10 +181,26 @@ export default function Dashboard() {
     setDragOver(false);
   };
 
-  function getDownloadUrl(fileUrl, filename) {
-    const safeName = encodeURIComponent(filename || "document");
-    return fileUrl.replace("/upload/", `/upload/fl_attachment:${safeName}/`);
-  }
+  const handleFileAccess = async (doc, isDownload = false) => {
+    try {
+      const blob = await documentService.fetchFile(doc._id, isDownload);
+      const objectUrl = URL.createObjectURL(blob);
+      if (isDownload) {
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = doc.originalName || "document";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+      } else {
+        window.open(objectUrl, "_blank", "noopener,noreferrer");
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to access document");
+    }
+  };
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -317,7 +333,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 mb-4">
             <Upload className="w-5 h-5 text-indigo-400" />
             <h2 className="text-lg font-semibold text-white tracking-tight">Upload Document</h2>
-            <span className="ml-auto text-xs text-slate-500 font-mono">Max 10MB</span>
+            <span className="ml-auto text-xs text-slate-500 font-mono">Max 20MB</span>
           </div>
 
           <form onSubmit={handleUpload}>
@@ -436,14 +452,13 @@ export default function Dashboard() {
                         <FileIcon className="w-5 h-5" />
                       </div>
                       <div className="min-w-0">
-                        <a
-                          href={doc.fileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-indigo-400 font-medium hover:text-indigo-300 hover:underline truncate block text-sm transition-colors"
+                        <button
+                          type="button"
+                          onClick={() => handleFileAccess(doc, false)}
+                          className="text-indigo-400 font-medium hover:text-indigo-300 hover:underline truncate block text-sm transition-colors text-left"
                         >
                           {doc.originalName}
-                        </a>
+                        </button>
                         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-0.5">
                           <span>{formatBytes(doc.size)}</span>
                           <span className="w-0.5 h-0.5 bg-slate-600 rounded-full" />
@@ -455,15 +470,14 @@ export default function Dashboard() {
                     </div>
                     
                     <div className="flex gap-1.5 shrink-0 ml-12 sm:ml-0">
-                      <a
-                        href={getDownloadUrl(doc.fileUrl, doc.originalName)}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => handleFileAccess(doc, true)}
                         className="p-2 rounded-lg bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] hover:text-slate-200 border border-white/[0.06] transition-colors"
                         title="Download"
                       >
                         <Download className="w-4 h-4" />
-                      </a>
+                      </button>
                       <button
                         className="p-2 rounded-lg bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] hover:text-slate-200 border border-white/[0.06] transition-colors"
                         onClick={() => setEditTarget(doc)}
