@@ -212,7 +212,10 @@ export default function Register() {
               <label className={labelClass}>
                 <span className="flex items-center gap-2">
                   <Shield className="w-4 h-4 text-slate-500" />
-                  Admin Code
+                  <span>
+                    Admin Code{" "}
+                    <span className="text-xs font-normal text-slate-400">(Optional)</span>
+                  </span>
                 </span>
               </label>
               <div className="relative">
