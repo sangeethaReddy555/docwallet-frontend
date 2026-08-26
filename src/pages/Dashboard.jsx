@@ -23,7 +23,8 @@ import {
   Database,
   HardDrive,
   Clock,
-  Radio
+  Radio,
+  AlertCircle
 } from "lucide-react";
 
 function formatBytes(bytes) {
@@ -65,6 +66,11 @@ export default function Dashboard() {
 
   const [user, setUser] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [storage, setStorage] = useState({
+    usedBytes: 0,
+    maxBytes: 50 * 1024 * 1024,
+    usedPercentage: 0,
+  });
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [loadingPage, setLoadingPage] = useState(true);
@@ -79,6 +85,17 @@ export default function Dashboard() {
     try {
       const data = await documentService.list();
       setDocuments(data.documents);
+      if (data.storage) {
+        setStorage(data.storage);
+      } else {
+        const totalUsed = data.documents.reduce((acc, doc) => acc + (doc.size || 0), 0);
+        const max = 50 * 1024 * 1024;
+        setStorage({
+          usedBytes: totalUsed,
+          maxBytes: max,
+          usedPercentage: Math.min(100, Math.round((totalUsed / max) * 100)),
+        });
+      }
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -104,9 +121,12 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
+  const remainingBytes = Math.max(0, storage.maxBytes - storage.usedBytes);
+  const isStorageFull = remainingBytes <= 0;
+
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
-    const validationError = validateSelectedFile(selected);
+    const validationError = validateSelectedFile(selected, remainingBytes);
     if (validationError) {
       toast.error(validationError);
       e.target.value = "";
@@ -118,7 +138,7 @@ export default function Dashboard() {
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    const validationError = validateSelectedFile(file);
+    const validationError = validateSelectedFile(file, remainingBytes);
     if (validationError) {
       toast.error(validationError);
       return;
@@ -126,10 +146,13 @@ export default function Dashboard() {
 
     setUploading(true);
     try {
-      await documentService.upload(file);
+      const res = await documentService.upload(file);
       toast.success("File uploaded successfully");
       setFile(null);
       document.getElementById("fileInput").value = "";
+      if (res && res.storage) {
+        setStorage(res.storage);
+      }
       await loadDocuments();
     } catch (err) {
       toast.error(err.message);
@@ -206,7 +229,7 @@ export default function Dashboard() {
     e.preventDefault();
     setDragOver(false);
     const droppedFile = e.dataTransfer.files[0];
-    const validationError = validateSelectedFile(droppedFile);
+    const validationError = validateSelectedFile(droppedFile, remainingBytes);
     if (validationError) {
       toast.error(validationError);
       return;
@@ -232,7 +255,7 @@ export default function Dashboard() {
         />
       </div>
       <div className="relative z-10 flex items-start justify-center p-4 py-8 sm:py-14">
-        <div className="w-full max-w-3xl">{children}</div>
+        <div className="w-full max-w-4xl">{children}</div>
       </div>
     </div>
   );
@@ -298,20 +321,54 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
           <div className="relative bg-white/[0.03] rounded-xl p-4 border border-white/[0.06] overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-400/70" />
-            <div className="flex items-center justify-between pl-2">
-              <div>
-                <p className="text-sm text-slate-400 font-medium">Storage Used</p>
-                <p className="text-2xl font-bold text-white font-mono tabular-nums">
-                  {loadingDocs ? "—" : formatBytes(documents.reduce((acc, doc) => acc + doc.size, 0))}
-                </p>
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+              storage.usedPercentage >= 90 
+                ? "bg-rose-400" 
+                : storage.usedPercentage >= 70 
+                ? "bg-amber-400" 
+                : "bg-emerald-400/70"
+            }`} />
+            <div className="pl-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-400 font-medium">Storage Quota</p>
+                  <p className="text-xl font-bold text-white font-mono tabular-nums">
+                    {loadingDocs ? "—" : `${formatBytes(storage.usedBytes)} / ${formatBytes(storage.maxBytes)}`}
+                  </p>
+                </div>
+                <div className={`p-2 rounded-lg ${
+                  storage.usedPercentage >= 90 
+                    ? "bg-rose-400/10 text-rose-400" 
+                    : storage.usedPercentage >= 70 
+                    ? "bg-amber-400/10 text-amber-400" 
+                    : "bg-emerald-400/10 text-emerald-400"
+                }`}>
+                  <HardDrive className="w-5 h-5" />
+                </div>
               </div>
-              <div className="p-2 bg-emerald-400/10 rounded-lg">
-                <HardDrive className="w-5 h-5 text-emerald-400" />
+
+              {/* Progress bar */}
+              <div className="mt-2.5 w-full bg-white/[0.06] rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    storage.usedPercentage >= 90 
+                      ? "bg-rose-500" 
+                      : storage.usedPercentage >= 70 
+                      ? "bg-amber-500" 
+                      : "bg-emerald-500"
+                  }`}
+                  style={{ width: `${Math.min(100, storage.usedPercentage)}%` }}
+                />
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+                <span>{storage.usedPercentage}% used</span>
+                <span>{formatBytes(remainingBytes)} free</span>
               </div>
             </div>
           </div>
+
           <div className="relative bg-white/[0.03] rounded-xl p-4 border border-white/[0.06] overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-400/70" />
             <div className="flex items-center justify-between pl-2">
@@ -328,12 +385,31 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Quota Warning if full or nearing full */}
+        {storage.usedPercentage >= 85 && (
+          <div className={`mt-4 p-3.5 rounded-xl border flex items-center gap-3 text-xs animate-fadeIn ${
+            isStorageFull 
+              ? "bg-rose-500/10 border-rose-500/20 text-rose-300" 
+              : "bg-amber-500/10 border-amber-500/20 text-amber-300"
+          }`}>
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>
+              {isStorageFull 
+                ? "Storage quota full! You cannot upload more documents until you delete existing files."
+                : `Storage running low: You have used ${storage.usedPercentage}% of your ${formatBytes(storage.maxBytes)} storage limit.`
+              }
+            </span>
+          </div>
+        )}
+
         {/* Upload Section */}
         <div className="mt-8">
           <div className="flex items-center gap-2 mb-4">
             <Upload className="w-5 h-5 text-indigo-400" />
             <h2 className="text-lg font-semibold text-white tracking-tight">Upload Document</h2>
-            <span className="ml-auto text-xs text-slate-500 font-mono">Max 20MB</span>
+            <span className="ml-auto text-xs text-slate-500 font-mono">
+              Max 10MB/file • {formatBytes(storage.maxBytes)} Quota
+            </span>
           </div>
 
           <form onSubmit={handleUpload}>

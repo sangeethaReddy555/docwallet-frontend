@@ -3,10 +3,10 @@ import { useNavigate, Link } from "react-router-dom";
 import { authService } from "../services/authService.js";
 import { validateLoginForm } from "../utils/validators.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { Mail, Lock, LogIn, AlertCircle, Shield, CheckCircle } from "lucide-react";
+import { Mail, Lock, LogIn, AlertCircle, Shield, CheckCircle, Eye, EyeOff } from "lucide-react";
 
 const inputClass =
-  "w-full px-4 py-3 bg-white/[0.04] border rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200";
+  "w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200";
 const inputErrorClass =
   "w-full px-4 py-3 bg-white/[0.04] border border-rose-500/50 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200";
 const labelClass = "block mb-1.5 text-sm font-semibold text-slate-300";
@@ -64,6 +64,7 @@ export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [statusBanner, setStatusBanner] = useState(null); // "pending" | "rejected" | null
 
   const handleChange = (e) => {
@@ -180,20 +181,41 @@ export default function Login() {
             </div>
 
             <div className="mt-4">
-              <label className={labelClass}>
-                <span className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-slate-500" />
-                  Password
-                </span>
-              </label>
-              <input 
-                className={errors.password ? inputErrorClass : inputClass} 
-                type="password" 
-                name="password" 
-                value={form.password} 
-                onChange={handleChange}
-                placeholder="••••••••"
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-semibold text-slate-300">
+                  <span className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-slate-500" />
+                    Password
+                  </span>
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="relative">
+                <input 
+                  className={errors.password ? `${inputErrorClass} pr-10` : `${inputClass} pr-10`} 
+                  type={showPassword ? "text" : "password"} 
+                  name="password" 
+                  value={form.password} 
+                  onChange={handleChange}
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
               {errors.password && (
                 <p className={errorTextClass}>
                   <AlertCircle className="w-3 h-3" />
